@@ -13,17 +13,37 @@ import { PhoneOff, Mic, MicOff, PictureInPicture2, Video, VideoOff } from 'lucid
 
 import { useRouter } from "next/navigation";
 
-
-
+import { useEffect, useState } from "react";
 
 const apiKey = '3krh3rxttsru'
-const userId = 'demo-user-PUcymDzl'
-const token = 'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiZGVtby11c2VyLVBVY3ltRHpsIiwic3ViIjoidXNlci9kZW1vLXVzZXItUFVjeW1EemwiLCJhcGlLZXkiOiIza3JoM3J4dHRzcnUiLCJpYXQiOjE3NzIyOTAwNjcsImV4cCI6MTc3MjI5MzY2N30.6Q0So50LuIcQHimdxvrYBvaql6U0rlZpGYgnVa3bQJ0'
+const userId = localStorage.getItem("watcher_user_id")!
+const token = localStorage.getItem("watcher_token")!
+const callId = localStorage.getItem("watcher_call_id")!
+const backend_url = process.env.NEXT_PUBLIC_BACKEND_URL
 
 const user: User = { id: userId }
 const client = new StreamVideoClient({ apiKey, user, token })
-const call = client.call('default', 'demo-call-lLh3nCHl')
+const call = client.call('default', callId)
 call.join({ create: true })
+
+fetch(`${backend_url}/sessions`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ call_type: "default", call_id: callId }),
+}).then(res => res.json()).then(data => {
+  localStorage.setItem("watcher_session_id", data.session_id)
+})
+
+async function fetchSessionId() {
+  const res2 = await fetch(`${backend_url}/sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ call_type: "default", call_id: callId }),
+  })
+  
+  const data = await res2.json()
+  localStorage.setItem("watcher_session_id", data.session_id) 
+}
 
 export default function Stream() {
   return (
@@ -69,6 +89,18 @@ export function UILayout() {
 }
 
 export function ButtonLayout() {
+  const [stats, setStats] = useState({ score: 100, last_posture_ok: true, keypoints_visible: false });
+  
+  useEffect(() => {
+    const id = setInterval(async () => {
+      try {
+        const res = await fetch(`${backend_url}/posture/${call.id}/stats`);
+        if (res.ok) setStats(await res.json());
+      } catch {}
+    }, 2000);
+    return () => clearInterval(id);
+  }, []);
+  
   const { useMicrophoneState, useCameraState } = useCallStateHooks();
   const { microphone, isMute } = useMicrophoneState();
   const { camera, isMute: isCameraMute } = useCameraState();
@@ -83,22 +115,25 @@ export function ButtonLayout() {
     await camera.toggle()
   }
   
-  async function endCall() {
+  async function endVideoCall() {
     try {
-      await call.endCall()
+      console.log("Ending call")
+      const sessionId = localStorage.getItem("watcher_session_id")
+      await fetch(`${backend_url}/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
+      await call.leave()
+      console.log("User has left the call")
       router.push("/")
     } catch (error) {
-      console.log(`An error occurred: ${error}`)
-      console.log(`Leaving call instead`)
-      await call.leave()
-      router.push("/")
+      console.log(`An error occurred when trying to leave call: ${error}`)
     }
   }
   
   return (
     <div className="flex gap-x-2.5 items-center">
       <Button size="lg" className="rounded-full cursor-pointer border border-green-300" variant="outline">
-        <span className="font-sans text-base font-medium">Good</span>
+        <span className="font-sans text-base font-medium">{ stats.score }</span>
       </Button>
       <div>
         {isCameraMute ? <Button size="icon-lg" className="rounded-full cursor-pointer" variant="default" onClick={cameraToggle}>
@@ -121,7 +156,7 @@ export function ButtonLayout() {
       <Button size="icon-lg" className="rounded-full cursor-pointer" variant="default">
         <PictureInPicture2 />
       </Button>
-      <Button size="icon-lg" className="cursor-pointer rounded-[30px]" variant="destructive" aria-label="End Video call">
+      <Button size="icon-lg" className="cursor-pointer rounded-[30px]" variant="destructive" onClick={endVideoCall} aria-label="End Video call">
         <PhoneOff />
       </Button>
     </div>

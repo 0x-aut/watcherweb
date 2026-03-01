@@ -2,10 +2,31 @@
 // import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { nanoid } from "nanoid";
+
+import {
+  StreamVideoClient,
+  type User
+} from '@stream-io/video-react-sdk';
+
 
 export default function Home() {
   const router = useRouter()
-  function toCallPage() {
+  const backend_url = process.env.NEXT_PUBLIC_BACKEND_URL
+  async function toCallPage() {
+    const userId = `guestuser-${nanoid()}`
+    const callId = `call-${nanoid()}`
+    
+    
+    const res = await fetch(`${backend_url}/posture/token?user_id=${userId}`)
+    const { token } = await res.json()
+    
+    
+    // Store everything
+    localStorage.setItem("watcher_call_id", callId)
+    localStorage.setItem("watcher_user_id", userId)
+    localStorage.setItem("watcher_token", token)
+    
     router.push('/call')
   }
   
