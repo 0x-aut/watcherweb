@@ -26,13 +26,13 @@ const client = new StreamVideoClient({ apiKey, user, token })
 const call = client.call('default', callId)
 call.join({ create: true })
 
-fetch(`${backend_url}/sessions`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ call_type: "default", call_id: callId }),
-}).then(res => res.json()).then(data => {
-  localStorage.setItem("watcher_session_id", data.session_id)
-})
+// fetch(`${backend_url}/sessions`, {
+//   method: "POST",
+//   headers: { "Content-Type": "application/json" },
+//   body: JSON.stringify({ call_type: "default", call_id: callId }),
+// }).then(res => res.json()).then(data => {
+//   localStorage.setItem("watcher_session_id", data.session_id)
+// })
 
 async function fetchSessionId() {
   const res2 = await fetch(`${backend_url}/sessions`, {
@@ -46,6 +46,7 @@ async function fetchSessionId() {
 }
 
 export default function Stream() {
+  fetchSessionId()
   return (
     <StreamVideo client={client}>
       <StreamCall call={call}>
